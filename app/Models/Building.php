@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BuildingStatus;
 use App\Enums\BuildingType;
+use App\Enums\WorkOrderStatus;
 use App\Models\Concerns\HasPrefixedId;
 use Database\Factories\BuildingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -49,6 +50,12 @@ class Building extends Model
     public function workOrders(): HasMany
     {
         return $this->hasMany(WorkOrder::class, 'property_id');
+    }
+
+    public function openWorkOrders(): HasMany
+    {
+        return $this->hasMany(WorkOrder::class, 'property_id')
+            ->where('status', WorkOrderStatus::Open);
     }
 
     protected static function idPrefix(): string
