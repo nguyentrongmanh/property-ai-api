@@ -1,0 +1,77 @@
+services:
+  nginx:
+    image: nginx:stable-alpine
+    container_name: property-ai-nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - webserver
+    networks:
+      - property-ai
+
+  webserver:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: property-ai-webserver
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/html
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-laravel}
+      DB_USERNAME: ${DB_USERNAME:-laravel}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - property-ai
+
+  mysql:
+    image: mysql:8.4
+    container_name: property-ai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-laravel}
+      MYSQL_USER: ${DB_USERNAME:-laravel}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - property-ai
+
+  redis:
+    image: redis:7-alpine
+    container_name: property-ai-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_FORWARD_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - property-ai
+
+networks:
+  property-ai:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
