@@ -1,0 +1,191 @@
+{
+  "info": {
+    "name": "Property Operations API",
+    "description": "Plain-language maintenance requests turned into structured work orders by an AI model.\n\nRun `make install` first, then set `base_url` if you changed the default port.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Properties",
+      "item": [
+        {
+          "name": "List properties",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/properties?city=Amsterdam&type=office&status=active&min_occupancy=0.5&per_page=15&page=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties"],
+              "query": [
+                { "key": "city", "value": "Amsterdam", "disabled": true, "description": "Exact city match" },
+                { "key": "type", "value": "office", "disabled": true, "description": "office | residential | retail | industrial | mixed_use" },
+                { "key": "status", "value": "active", "disabled": true, "description": "active | inactive | under_renovation" },
+                { "key": "min_occupancy", "value": "0.5", "disabled": true, "description": "0..1" },
+                { "key": "per_page", "value": "15", "disabled": true, "description": "1..100, default 15" },
+                { "key": "page", "value": "1", "disabled": true }
+              ]
+            },
+            "description": "Buildings sorted fullest (highest occupancy) first. Enable query params to filter. No matches returns 200 with an explicit message."
+          }
+        },
+        {
+          "name": "Property detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/properties/P-001",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties", "P-001"]
+            },
+            "description": "One building plus its open work order count (open_work_orders)."
+          }
+        },
+        {
+          "name": "Property stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/properties/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties", "stats"]
+            },
+            "description": "City totals and average occupancy per city. Returns 200 with a data array like [{ city, total_properties, average_occupancy_rate }]."
+          }
+        },
+        {
+          "name": "Property summary (uses AI)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/properties/P-001/summary",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties", "P-001", "summary"]
+            },
+            "description": "AI-written summary of the building and its open work orders. Requires GEMINI_API_KEY in .env. Cached for 10 minutes; throttled to 10 requests/minute.\n\nPossible responses:\n- 200: { data: { property_id, summary } }\n- 404: unknown building\n- 429: throttled or Gemini quota reached\n- 502: AI unreachable or unusable answer"
+          }
+        },
+        {
+          "name": "Property detail — not found (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/properties/P-999",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties", "P-999"]
+            },
+            "description": "Expects 404 with a clear message: Building P-999 was not found."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Work Orders",
+      "item": [
+        {
+          "name": "List work orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/work-orders?property_id=P-001&status=open&priority=urgent&category=elevator&per_page=15",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-orders"],
+              "query": [
+                { "key": "property_id", "value": "P-001", "disabled": true, "description": "Filter by building" },
+                { "key": "status", "value": "open", "disabled": true, "description": "open | in_progress | completed | cancelled" },
+                { "key": "priority", "value": "urgent", "disabled": true, "description": "low | medium | high | urgent" },
+                { "key": "category", "value": "elevator", "disabled": true, "description": "elevator | plumbing | electrical | hvac | cleaning | security | structural | general" },
+                { "key": "per_page", "value": "15", "disabled": true, "description": "1..100, default 15" }
+              ]
+            },
+            "description": "Work orders sorted most urgent first, then most recent. Enable query params to filter."
+          }
+        },
+        {
+          "name": "Create work order (uses AI)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"property_id\": \"P-001\",\n    \"email\": \"tenant@gmail.com\",\n    \"description\": \"the elevator in the lobby keeps stopping and makes a grinding noise\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/work-orders",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-orders"]
+            },
+            "description": "The description is sent to Gemini, which returns a title, category, priority and summary. Requires GEMINI_API_KEY in .env.\n\nPossible responses:\n- 201: created work order\n- 422: unknown building / implausible email / description too short\n- 429: throttled (10/min) or Gemini quota reached\n- 502: AI unreachable or answered garbage twice — nothing saved"
+          }
+        },
+        {
+          "name": "Create work order — unknown building (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"property_id\": \"P-999\",\n    \"email\": \"tenant@gmail.com\",\n    \"description\": \"the heating is broken in unit 4\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/work-orders",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-orders"]
+            },
+            "description": "Expects 422: The given building does not exist."
+          }
+        },
+        {
+          "name": "Create work order — invalid email (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"property_id\": \"P-001\",\n    \"email\": \"not-an-email\",\n    \"description\": \"the heating is broken in unit 4\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/work-orders",
+              "host": ["{{base_url}}"],
+              "path": ["api", "work-orders"]
+            },
+            "description": "Expects 422: The email field must be a valid email address."
+          }
+        }
+      ]
+    }
+  ]
+}
