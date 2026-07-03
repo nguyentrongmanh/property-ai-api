@@ -62,7 +62,7 @@ swapping providers means writing one class and rebinding one interface in
 | GET | `/api/properties` | List buildings, fullest first. Filters: `city`, `type`, `status`, `min_occupancy`, `per_page` |
 | GET | `/api/properties/stats` | City stats: total properties and average occupancy per city |
 | GET | `/api/properties/{id}` | One building + its open work order count |
-| GET | `/api/properties/{id}/summary` | **Uses AI.** Short written summary of the building and its open work orders (cached 10 min) |
+| GET | `/api/properties/{id}/summary` | **Uses AI.** Short written summary of the building and its open work orders |
 | POST | `/api/work-orders` | **Uses AI.** Body: `property_id`, `email`, `description` → returns the classified work order |
 | GET | `/api/work-orders` | List work orders, most urgent then newest. Filters: `property_id`, `status`, `priority`, `category`, `per_page` |
 
