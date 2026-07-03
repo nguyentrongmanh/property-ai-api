@@ -143,6 +143,10 @@ php artisan test        # local
 - **Queued classification**: for production I'd move the AI call to a queued
   job with a `pending` work order status, so slow model responses never block
   the HTTP request.
+- **Cached building summaries**: `GET /properties/{id}/summary` calls Gemini
+  on every request; I'd wrap it in `Cache::remember()` keyed on the building
+  ID plus a freshness signal (building/work-order `updated_at`), so repeat
+  requests for unchanged data don't pay the API cost or latency.
 - **Race-proof IDs**: the prefixed-ID generation (`WO-1002`, …) isn't safe
   under heavy concurrent writes; I'd switch to ULIDs or a DB sequence.
 
