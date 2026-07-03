@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Base controller. Children pass their concrete service to the
@@ -51,7 +52,7 @@ abstract class BaseApiController extends Controller
     /**
      * Respond with data and an optional message.
      */
-    protected function respondSuccess(mixed $data = null, ?string $message = null, int $status = 200): JsonResponse
+    protected function respondSuccess(mixed $data = null, ?string $message = null, int $status = Response::HTTP_OK): JsonResponse
     {
         return response()->json(array_filter([
             'message' => $message,
@@ -67,7 +68,7 @@ abstract class BaseApiController extends Controller
         return $resource
             ->additional(array_filter(['message' => $message]))
             ->response()
-            ->setStatusCode(201);
+            ->setStatusCode(Response::HTTP_CREATED);
     }
 
     /**
@@ -84,7 +85,7 @@ abstract class BaseApiController extends Controller
     /**
      * Respond with an error message.
      */
-    protected function respondError(string $message, int $status = 400): JsonResponse
+    protected function respondError(string $message, int $status = Response::HTTP_BAD_REQUEST): JsonResponse
     {
         return response()->json(['message' => $message], $status);
     }

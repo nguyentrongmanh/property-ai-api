@@ -44,13 +44,66 @@ than defaulted, because the spec explicitly requires the code to cope with
 incomplete data. Only `status` fields get defaults (`active` / `open`), mirrored
 in the models' `$attributes`.
 
+## Architecture
+
+### Three layers: Controller → Service → Repository, each with a base
+Controllers stay thin (validate → delegate → wrap in a resource), services own
+domain flows, repositories own every Eloquent query. Each layer has a base
+abstraction so concrete classes only add what is domain-specific:
+
+- `RepositoryInterface` / `CrudServiceInterface` — generic CRUD contracts
+  (`filter`, `detail`, `create`, `edit`, `delete`).
+- `BaseCrudService` — default pass-through to a repository, including
+  `per_page` resolution.
+- `BaseApiController` — takes a `CrudServiceInterface`, exposes the response
+  helpers (`respondList`, `respondItem`, `respondCreated`, `respondEmptyList`,
+  `respondError`) and applies the child's configured `$resource` class-string.
+
+Interfaces are bound to implementations in `AppServiceProvider`.
+
+### Centralised exception rendering
+All API error rendering lives in `bootstrap/app.php` (`shouldRenderJsonWhen`
+for `api/*`, model-aware 404 messages, AI failure mapping) rather than
+`render()` methods on exception classes — one place to see the whole error
+surface. HTTP status codes use `Symfony\Component\HttpFoundation\Response`
+constants, never magic numbers.
+
+### Pagination with explicit empty-state messages
+List endpoints return Laravel's standard paginated shape (`data` + `links` +
+`meta`, `per_page` capped at 100, filter params carried into page links via
+`withQueryString()`). When nothing matches, the API returns a 200 with an
+explicit message instead of a bare empty list, per the spec's "say so clearly"
+requirement.
+
 ## AI integration
 
 ### Google Gemini as the provider
 Free tier generous enough for reviewers to run the project without paying,
 solid structured-output support (`responseSchema`), and a simple key signup.
-The call sits behind a `WorkOrderClassifier` interface so the provider can be
-swapped without touching controllers or services.
+The call sits behind `WorkOrderClassifierInterface`, so the provider can be
+swapped by rebinding one interface in `AppServiceProvider`.
+
+### Trust nothing the model returns
+Three fences between the model and the database:
+
+1. **Request-side**: `responseSchema` with enum-constrained `category` /
+   `priority`, temperature 0.2, JSON-only responses.
+2. **Prompt-side**: the tenant's message is framed as untrusted data — the
+   prompt instructs the model to ignore any instructions embedded in it.
+3. **Response-side**: `WorkOrderClassification::fromArray()` is the only way
+   to build the DTO (private constructor). It rejects missing/empty fields and
+   unknown enum values, so a half-filled work order can never be persisted.
+
+The classify cycle runs at most twice; failures log a warning with the reason
+and nothing is saved.
+
+### Failure modes map to distinct status codes
+- Client floods our API → route `throttle:10,1` → **429** (each request can
+  spend AI quota, so the POST endpoint is deliberately modest).
+- Gemini's own quota trips → **429 + Retry-After: 60**, and the second classify
+  attempt is skipped (retrying a rate-limited call only burns more quota).
+- Gemini unreachable / unusable answer → **502** with a calm, generic message;
+  the real reason goes to the logs, not the client.
 
 ## Infrastructure
 

@@ -1,58 +1,92 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Property Operations API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A small REST API where plain-language maintenance requests are turned into
+structured work orders by an AI model. Someone writes *"the elevator in the
+lobby keeps stopping and makes a grinding noise"* — the API stores a work
+order with a clean title, category, priority and summary.
 
-## About Laravel
+**Stack:** PHP 8.4 · Laravel 13 · MySQL 8.4 · Redis 7 · nginx · Docker ·
+Google Gemini
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Quick start (Docker)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Requirements: Docker with Compose, `make`.
 
 ```bash
-composer require laravel/boost --dev
+cp .env.docker.example .env
+# put your Gemini key in .env → GEMINI_API_KEY=...   (free key: https://aistudio.google.com)
 
-php artisan boost:install
+make install        # builds images, starts containers, generates app key, migrates, seeds
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+The API is now at **http://localhost:8000** with 14 buildings and 6 work
+orders seeded. Try it:
 
-## Contributing
+```bash
+curl "http://localhost:8000/api/properties?city=Amsterdam"
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+curl -X POST http://localhost:8000/api/work-orders \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"property_id":"P-001","email":"tenant@gmail.com","description":"the elevator in the lobby keeps stopping and makes a grinding noise"}'
+```
 
-## Code of Conduct
+`make help` lists all commands (`make logs`, `make test`, `make migrate-fresh`, …).
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Without Docker
 
-## Security Vulnerabilities
+```bash
+cp .env.example .env    # SQLite + file cache, no external services needed
+composer install
+touch database/database.sqlite
+php artisan key:generate
+php artisan migrate --seed
+php artisan serve       # http://localhost:8000
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## AI provider
 
-## License
+**Google Gemini** (`gemini-2.5-flash` by default, configurable via
+`GEMINI_MODEL`). Chosen because its free tier is more than enough here and
+supports structured JSON output (`responseSchema`), so the model is
+constrained to our exact categories and priorities at request time.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The call lives behind `App\Services\AI\Contracts\WorkOrderClassifierInterface`;
+swapping providers means writing one class and rebinding one interface in
+`AppServiceProvider`. The model's answer is never trusted blindly — see
+[DECISION.md](DECISION.md).
+
+## Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/properties` | List buildings, fullest first. Filters: `city`, `type`, `status`, `min_occupancy`, `per_page` |
+| GET | `/api/properties/{id}` | One building + its open work order count |
+| POST | `/api/work-orders` | **Uses AI.** Body: `property_id`, `email`, `description` → returns the classified work order |
+| GET | `/api/work-orders` | List work orders, most urgent then newest. Filters: `property_id`, `status`, `priority`, `category`, `per_page` |
+
+Responses that can go wrong do so with intent:
+
+| Status | When |
+|---|---|
+| 200 with message | Filters matched nothing ("No properties matched the given filters.") |
+| 404 | Unknown ID — `{"message": "Building P-999 was not found."}` |
+| 422 | Validation: unknown building, implausible email, filter value outside the enums |
+| 429 | Too many requests — ours (`throttle:10,1` on the AI endpoint) or Gemini's quota (with `Retry-After`) |
+| 502 | The AI was unreachable or answered garbage twice — nothing was saved |
+
+## How it's organised
+
+```
+routes/api.php                     thin route definitions
+app/Http/Controllers/Api/          validate input, delegate, wrap in resources
+app/Http/Requests|Resources/       validation rules / response shapes
+app/Services/                      domain flows (WorkOrderService::create = classify → persist)
+app/Services/AI/                   the AI seam: interface, Gemini client, validated DTO
+app/Repositories/                  every Eloquent query, behind interfaces
+app/Enums/                         single source of truth for types/statuses/categories/priorities
+app/Models/                        Eloquent models + prefixed-ID generation (P-001, WO-1001)
+database/seeders/                  14 curated buildings (with deliberate gaps) + demo work orders
+```
+
+Controller → Service → Repository, interfaces bound in `AppServiceProvider`.
+The reasoning behind the non-obvious choices is in [DECISION.md](DECISION.md).

@@ -1,10 +1,12 @@
 <?php
 
+use App\Exceptions\WorkOrderClassificationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -22,6 +24,19 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*'),
         );
 
+        $exceptions->render(function (WorkOrderClassificationException $e, Request $request) {
+            if ($e->isRateLimited()) {
+                return response()->json([
+                    'message' => 'The AI service is receiving too many requests. Please try again in a minute.',
+                ], Response::HTTP_TOO_MANY_REQUESTS, ['Retry-After' => 60]);
+            }
+
+            // Bad gateway: the request was fine, the upstream AI dependency failed.
+            return response()->json([
+                'message' => 'We could not process the maintenance request right now. Please try again shortly.',
+            ], Response::HTTP_BAD_GATEWAY);
+        });
+
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if (! $request->is('api/*')) {
                 return null;
@@ -37,6 +52,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 )
                 : 'Resource not found.';
 
-            return response()->json(['message' => $message], 404);
+            return response()->json(['message' => $message], Response::HTTP_NOT_FOUND);
         });
     })->create();
