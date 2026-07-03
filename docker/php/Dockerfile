@@ -1,21 +1,21 @@
-FROM php:8.4-fpm
+FROM php:8.4-fpm-alpine
 
 # System dependencies
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     git \
     curl \
     unzip \
     zip \
     libpng-dev \
-    libjpeg62-turbo-dev \
-    libfreetype6-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
     libzip-dev \
-    libicu-dev \
-    libonig-dev \
+    icu-dev \
+    oniguruma-dev \
     libxml2-dev \
-    libpq-dev \
-    libsqlite3-dev \
-    sqlite3 \
+    postgresql-dev \
+    sqlite-dev \
+    sqlite \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo \
@@ -26,13 +26,6 @@ RUN apt-get update && apt-get install -y \
         gd \
         zip \
         opcache
-
-RUN apt-get update && apt-get install -y \
-    $PHPIZE_DEPS \
-    && pecl channel-update pecl.php.net \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
-    && apt-get purge -y --auto-remove $PHPIZE_DEPS
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
