@@ -100,8 +100,7 @@ with toggleable filter params, the AI creation request, and ready-made 404/422
 failure cases. `base_url` defaults to `http://localhost:8000`.
 
 ## Tests
-
-67 tests / 169 assertions, running on in-memory SQLite in well under a second:
+running on in-memory SQLite in well under a second:
 
 ```bash
 make test               # inside Docker
@@ -126,3 +125,9 @@ php artisan test        # local
   the HTTP request.
 - **Race-proof IDs**: the prefixed-ID generation (`WO-1002`, …) isn't safe
   under heavy concurrent writes; I'd switch to ULIDs or a DB sequence.
+
+## Copyright
+
+Copyright (c) 2026 Nguyen Trong Manh.
+
+GitHub: [https://github.com/nguyentrongmanh](https://github.com/nguyentrongmanh)

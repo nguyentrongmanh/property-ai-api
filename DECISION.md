@@ -119,18 +119,12 @@ instead.
 - Gemini unreachable / unusable answer → **502** with a calm, generic message;
   the real reason goes to the logs, not the client.
 
-## Infrastructure
+## Infrastructure (Local build)
 
 ### Docker: nginx + PHP-FPM + MySQL 8.4 + Redis 7
 Four containers on one bridge network. nginx serves `public/` and proxies PHP
 to the FPM container; MySQL has a healthcheck so the app container waits for it;
 named volumes persist MySQL and Redis data.
-
-### Debian-based `php:8.4-fpm` image
-Alpine was tried first for its smaller CVE surface, but PECL's flaky DNS made
-`pecl install redis` unreliable during builds. The standard Debian image with
-`pecl channel-update` proved more dependable. PHP 8.4 matches the project
-guidelines (composer.json allows `^8.3`).
 
 ### Two env examples
 - `.env.example` — local, dependency-free profile: SQLite, file cache/session,
