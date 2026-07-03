@@ -76,6 +76,24 @@ Responses that can go wrong do so with intent:
 | 429 | Too many requests — ours (`throttle:10,1` on the AI endpoint) or Gemini's quota (with `Retry-After`) |
 | 502 | The AI was unreachable or answered garbage twice — nothing was saved |
 
+API error payloads include `status_code` for machine-friendly handling.
+
+## Traceability
+
+Every request is tagged with `x-correlation-id`:
+
+- If the client sends one, the API keeps it.
+- If not, the API generates one and returns it on the response header.
+
+Two lifecycle log entries are emitted for each request:
+
+- `http.request.started` (before controller logic)
+- `http.request.finished` (after controller logic)
+
+Both include `correlation_id` so request/response flow is easy to trace.
+Unhandled API exceptions also log `http.request.failed` with the same
+`correlation_id`.
+
 ## How it's organised
 
 ```
@@ -115,6 +133,8 @@ php artisan test        # local
   (ordering, combined filters, prefixed-ID generation).
 - **Unit**: the AI response validator (rejects 8 flavors of unusable model
   output) and both services with mocked repositories.
+- **Middleware**: correlation ID generation/passthrough and request lifecycle
+  logging with shared correlation IDs.
 - Real HTTP is blocked in tests (`Http::preventStrayRequests`), so the suite
   can never hit the Gemini API.
 

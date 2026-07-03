@@ -68,6 +68,22 @@ for `api/*`, model-aware 404 messages, AI failure mapping) rather than
 surface. HTTP status codes use `Symfony\Component\HttpFoundation\Response`
 constants, never magic numbers.
 
+Unhandled API exceptions return a generic message and also include
+`status_code` in the JSON body so clients can branch on a stable field without
+parsing free-form messages.
+
+### Request traceability with correlation IDs
+Global middleware ensures every request has `x-correlation-id`:
+
+- inbound value is preserved when provided
+- missing value is generated server-side and returned on response headers
+
+Another global middleware logs request lifecycle events before and after
+controller execution (`http.request.started`, `http.request.finished`) and
+includes the same `correlation_id` in both entries. Internal API failures log
+`http.request.failed` with that same ID, so a single request can be followed
+across normal and error paths.
+
 ### Pagination with explicit empty-state messages
 List endpoints return Laravel's standard paginated shape (`data` + `links` +
 `meta`, `per_page` capped at 100, filter params carried into page links via

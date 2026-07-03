@@ -1,11 +1,14 @@
 <?php
 
 use App\Exceptions\AiServiceException;
+use App\Http\Middleware\CorrelationIdMiddleware;
+use App\Http\Middleware\RequestLoggerMiddleware;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -19,7 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->append(CorrelationIdMiddleware::class);
+        $middleware->append(RequestLoggerMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -82,6 +86,14 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($e instanceof ValidationException) {
                 return null;
             }
+
+            Log::error('http.request.failed', [
+                'correlation_id' => $request->header(CorrelationIdMiddleware::XCID),
+                'method' => $request->method(),
+                'path' => '/'.$request->path(),
+                'exception' => $e::class,
+                'reason' => $e->getMessage(),
+            ]);
 
             return response()->json([
                 'message' => 'Internal server error.',
