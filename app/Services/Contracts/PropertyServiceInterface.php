@@ -17,6 +17,11 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 interface PropertyServiceInterface extends CrudServiceInterface
 {
     /**
+     * @return array<int, array{city: string, total_properties: int, average_occupancy_rate: float|null}>
+     */
+    public function statsByCity(): array;
+
+    /**
      * AI-written summary of a building and its open work orders.
      *
      * @throws ModelNotFoundException

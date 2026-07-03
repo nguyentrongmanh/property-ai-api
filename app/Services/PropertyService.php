@@ -29,4 +29,12 @@ class PropertyService extends BaseCrudService implements PropertyServiceInterfac
             openWorkOrders: $building->openWorkOrders,
         ));
     }
+
+    /**
+     * @return array<int, array{city: string, total_properties: int, average_occupancy_rate: float|null}>
+     */
+    public function statsByCity(): array
+    {
+        return $this->buildings->statsByCity();
+    }
 }

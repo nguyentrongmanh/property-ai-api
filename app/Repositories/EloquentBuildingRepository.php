@@ -8,6 +8,29 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class EloquentBuildingRepository implements BuildingRepositoryInterface
 {
+    /**
+     * @return array<int, array{city: string, total_properties: int, average_occupancy_rate: float|null}>
+     */
+    public function statsByCity(): array
+    {
+        return Building::query()
+            ->selectRaw('city, COUNT(*) as total_properties, AVG(occupancy_rate) as average_occupancy_rate')
+            ->whereNotNull('city')
+            ->groupBy('city')
+            ->orderBy('city')
+            ->get()
+            ->map(static function (Building $building): array {
+                return [
+                    'city' => (string) $building->city,
+                    'total_properties' => (int) $building->getAttribute('total_properties'),
+                    'average_occupancy_rate' => $building->getAttribute('average_occupancy_rate') === null
+                        ? null
+                        : round((float) $building->getAttribute('average_occupancy_rate'), 2),
+                ];
+            })
+            ->all();
+    }
+
     public function filter(array $filters, int $perPage): LengthAwarePaginator
     {
         return Building::query()

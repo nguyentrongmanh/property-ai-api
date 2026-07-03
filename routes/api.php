@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\WorkOrderController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/properties', [PropertyController::class, 'index']);
+Route::get('/properties/stats', [PropertyController::class, 'stats']);
 Route::get('/properties/{id}', [PropertyController::class, 'show']);
 Route::get('/properties/{id}/summary', [PropertyController::class, 'summary'])
     ->middleware('throttle:10,1'); // AI-backed endpoint, keep it modest

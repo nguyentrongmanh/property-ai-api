@@ -64,6 +64,29 @@ class EloquentBuildingRepositoryTest extends TestCase
         $this->assertSame(3, $result->lastPage());
     }
 
+    public function test_stats_by_city_returns_totals_and_average_occupancy(): void
+    {
+        Building::factory()->create(['city' => 'Amsterdam', 'occupancy_rate' => 0.80]);
+        Building::factory()->create(['city' => 'Amsterdam', 'occupancy_rate' => 0.60]);
+        Building::factory()->create(['city' => 'Rotterdam', 'occupancy_rate' => null]);
+        Building::factory()->create(['city' => null, 'occupancy_rate' => 0.90]);
+
+        $result = $this->repository->statsByCity();
+
+        $this->assertSame([
+            [
+                'city' => 'Amsterdam',
+                'total_properties' => 2,
+                'average_occupancy_rate' => 0.7,
+            ],
+            [
+                'city' => 'Rotterdam',
+                'total_properties' => 1,
+                'average_occupancy_rate' => null,
+            ],
+        ], $result);
+    }
+
     public function test_detail_includes_open_work_order_count(): void
     {
         $building = Building::factory()->create();

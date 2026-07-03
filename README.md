@@ -60,6 +60,7 @@ swapping providers means writing one class and rebinding one interface in
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/properties` | List buildings, fullest first. Filters: `city`, `type`, `status`, `min_occupancy`, `per_page` |
+| GET | `/api/properties/stats` | City stats: total properties and average occupancy per city |
 | GET | `/api/properties/{id}` | One building + its open work order count |
 | GET | `/api/properties/{id}/summary` | **Uses AI.** Short written summary of the building and its open work orders (cached 10 min) |
 | POST | `/api/work-orders` | **Uses AI.** Body: `property_id`, `email`, `description` → returns the classified work order |
@@ -94,20 +95,20 @@ The reasoning behind the non-obvious choices is in [DECISION.md](DECISION.md).
 
 ## Postman
 
-Import [postman_collection.json](postman_collection.json) — all four endpoints
+Import [postman_collection.json](postman_collection.json) — all six endpoints
 with toggleable filter params, the AI creation request, and ready-made 404/422
 failure cases. `base_url` defaults to `http://localhost:8000`.
 
 ## Tests
 
-64 tests / 164 assertions, running on in-memory SQLite in well under a second:
+67 tests / 169 assertions, running on in-memory SQLite in well under a second:
 
 ```bash
 make test               # inside Docker
 php artisan test        # local
 ```
 
-- **Feature**: all four endpoints — filtering, sorting, pagination,
+- **Feature**: all six endpoints — filtering, sorting, pagination,
   empty-state messages, 404/422/429/502 paths. The AI is swapped for a fake
   via its `AIServiceInterface` binding; tests assert the AI service is never
   called when validation fails and nothing is saved when it errors.
@@ -120,8 +121,6 @@ php artisan test        # local
 
 ## Left out / with more time
 
-- **Stats endpoint** (totals and average occupancy per city) — the last
-  nice-to-have from the brief; I prioritised a solid core over extras.
 - **Queued classification**: for production I'd move the AI call to a queued
   job with a `pending` work order status, so slow model responses never block
   the HTTP request.

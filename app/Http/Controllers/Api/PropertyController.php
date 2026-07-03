@@ -29,6 +29,11 @@ class PropertyController extends BaseApiController
         ]);
     }
 
+    public function stats(): JsonResponse
+    {
+        return $this->respondSuccess($this->properties->statsByCity());
+    }
+
     public function index(IndexPropertiesRequest $request): JsonResponse|AnonymousResourceCollection
     {
         return $this->respondList($this->service->filter($request->validated()));

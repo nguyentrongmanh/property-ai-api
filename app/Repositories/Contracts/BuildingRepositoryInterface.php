@@ -16,6 +16,11 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 interface BuildingRepositoryInterface extends RepositoryInterface
 {
     /**
+     * @return array<int, array{city: string, total_properties: int, average_occupancy_rate: float|null}>
+     */
+    public function statsByCity(): array;
+
+    /**
      * Return a single building with its open work orders loaded.
      *
      * @throws ModelNotFoundException

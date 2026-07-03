@@ -54,6 +54,19 @@ class PropertyServiceTest extends TestCase
         $this->assertSame('A busy office building.', $this->service->summary('P-001'));
     }
 
+    public function test_stats_by_city_delegates_to_the_repository(): void
+    {
+        $this->repository->shouldReceive('statsByCity')
+            ->once()
+            ->andReturn([
+                ['city' => 'Amsterdam', 'total_properties' => 2, 'average_occupancy_rate' => 0.7],
+            ]);
+
+        $this->assertSame([
+            ['city' => 'Amsterdam', 'total_properties' => 2, 'average_occupancy_rate' => 0.7],
+        ], $this->service->statsByCity());
+    }
+
     public function test_filter_uses_the_default_page_size(): void
     {
         $paginator = new LengthAwarePaginator([], 0, 15, 1, ['path' => '/']);
