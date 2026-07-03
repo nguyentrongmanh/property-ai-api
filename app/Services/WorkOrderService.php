@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\WorkOrder;
 use App\Repositories\Contracts\WorkOrderRepositoryInterface;
-use App\Services\AI\Contracts\WorkOrderClassifierInterface;
+use App\Services\AI\Contracts\AIServiceInterface;
 use App\Services\Contracts\WorkOrderServiceInterface;
 use Illuminate\Database\Eloquent\Model;
 
@@ -15,7 +15,7 @@ class WorkOrderService extends BaseCrudService implements WorkOrderServiceInterf
 {
     public function __construct(
         WorkOrderRepositoryInterface $workOrders,
-        private readonly WorkOrderClassifierInterface $classifier,
+        private readonly AIServiceInterface $aiService,
     ) {
         parent::__construct($workOrders);
     }
@@ -29,16 +29,16 @@ class WorkOrderService extends BaseCrudService implements WorkOrderServiceInterf
      */
     public function create(array $attributes): Model
     {
-        $classification = $this->classifier->classify($attributes['description']);
+        $workOrder = $this->aiService->generateWorkOrder($attributes['description']);
 
         return $this->repository->create([
             'property_id' => $attributes['property_id'],
             'requester_email' => $attributes['email'],
             'source_text' => $attributes['description'],
-            'title' => $classification->title,
-            'category' => $classification->category,
-            'priority' => $classification->priority,
-            'summary' => $classification->summary,
+            'title' => $workOrder->title,
+            'category' => $workOrder->category,
+            'priority' => $workOrder->priority,
+            'summary' => $workOrder->summary,
         ]);
     }
 }

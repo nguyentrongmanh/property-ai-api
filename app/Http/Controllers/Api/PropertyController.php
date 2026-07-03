@@ -15,9 +15,18 @@ class PropertyController extends BaseApiController
 
     protected string $emptyListMessage = 'No properties matched the given filters.';
 
-    public function __construct(PropertyServiceInterface $propertyService)
+    public function __construct(
+        private readonly PropertyServiceInterface $properties,
+    ) {
+        parent::__construct($properties);
+    }
+
+    public function summary(string $id): JsonResponse
     {
-        parent::__construct($propertyService);
+        return $this->respondSuccess([
+            'property_id' => $id,
+            'summary' => $this->properties->summary($id),
+        ]);
     }
 
     public function index(IndexPropertiesRequest $request): JsonResponse|AnonymousResourceCollection

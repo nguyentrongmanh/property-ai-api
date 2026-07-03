@@ -31,6 +31,13 @@ class EloquentBuildingRepository implements BuildingRepositoryInterface
             ->findOrFail($id);
     }
 
+    public function detailWithOpenWorkOrders(string $id): Building
+    {
+        return Building::query()
+            ->with('openWorkOrders')
+            ->findOrFail($id);
+    }
+
     public function create(array $attributes): Building
     {
         return Building::query()->create($attributes);

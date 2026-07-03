@@ -80,8 +80,8 @@ requirement.
 ### Google Gemini as the provider
 Free tier generous enough for reviewers to run the project without paying,
 solid structured-output support (`responseSchema`), and a simple key signup.
-The call sits behind `WorkOrderClassifierInterface`, so the provider can be
-swapped by rebinding one interface in `AppServiceProvider`.
+The call sits behind `App\Services\AI\Contracts\AIServiceInterface`, so the
+provider can be swapped by rebinding one interface in `AppServiceProvider`.
 
 ### Trust nothing the model returns
 Three fences between the model and the database:
@@ -90,12 +90,26 @@ Three fences between the model and the database:
    `priority`, temperature 0.2, JSON-only responses.
 2. **Prompt-side**: the tenant's message is framed as untrusted data — the
    prompt instructs the model to ignore any instructions embedded in it.
-3. **Response-side**: `WorkOrderClassification::fromArray()` is the only way
-   to build the DTO (private constructor). It rejects missing/empty fields and
-   unknown enum values, so a half-filled work order can never be persisted.
+3. **Response-side**: `WorkOrderResponseValidator` turns raw model output into
+  `AIWorkOrderDTO` and rejects missing/empty fields or unknown enum values, so
+  a half-filled work order can never be persisted.
 
 The classify cycle runs at most twice; failures log a warning with the reason
 and nothing is saved.
+
+### One Gemini client, one AI service
+The HTTP transport (timeouts, retries, 429 mapping, empty-answer detection)
+lives in a shared `GeminiClient`; `AIService` owns the domain flows for work
+order generation and building summaries, while prompt builders keep the
+prompt text out of the service itself. `WorkOrderResponseValidator` keeps the
+structured output checks separate from the transport. The classification-
+specific exception was generalised to `AiServiceException` at the same time —
+one error surface for every AI failure.
+
+The building summary path deliberately sets no `maxOutputTokens`: Gemini 2.5
+models spend output budget on internal "thinking" before the visible text, so
+a low cap truncates the answer mid-sentence. The prompt keeps summaries short
+instead.
 
 ### Failure modes map to distinct status codes
 - Client floods our API → route `throttle:10,1` → **429** (each request can

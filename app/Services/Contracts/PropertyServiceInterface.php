@@ -2,7 +2,9 @@
 
 namespace App\Services\Contracts;
 
+use App\Exceptions\AiServiceException;
 use App\Models\Building;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
  * Buildings are listed fullest (highest occupancy) first;
@@ -12,4 +14,13 @@ use App\Models\Building;
  *
  * @extends CrudServiceInterface<Building>
  */
-interface PropertyServiceInterface extends CrudServiceInterface {}
+interface PropertyServiceInterface extends CrudServiceInterface
+{
+    /**
+     * AI-written summary of a building and its open work orders.
+     *
+     * @throws ModelNotFoundException
+     * @throws AiServiceException
+     */
+    public function summary(string $id): string;
+}

@@ -6,7 +6,7 @@ lobby keeps stopping and makes a grinding noise"* — the API stores a work
 order with a clean title, category, priority and summary.
 
 **Stack:** PHP 8.4 · Laravel 13 · MySQL 8.4 · Redis 7 · nginx · Docker ·
-Google Gemini
+Google Gemini via a shared AI service
 
 ## Quick start (Docker)
 
@@ -50,7 +50,7 @@ php artisan serve       # http://localhost:8000
 supports structured JSON output (`responseSchema`), so the model is
 constrained to our exact categories and priorities at request time.
 
-The call lives behind `App\Services\AI\Contracts\WorkOrderClassifierInterface`;
+The call lives behind `App\Services\AI\Contracts\AIServiceInterface`;
 swapping providers means writing one class and rebinding one interface in
 `AppServiceProvider`. The model's answer is never trusted blindly — see
 [DECISION.md](DECISION.md).
@@ -61,6 +61,7 @@ swapping providers means writing one class and rebinding one interface in
 |---|---|---|
 | GET | `/api/properties` | List buildings, fullest first. Filters: `city`, `type`, `status`, `min_occupancy`, `per_page` |
 | GET | `/api/properties/{id}` | One building + its open work order count |
+| GET | `/api/properties/{id}/summary` | **Uses AI.** Short written summary of the building and its open work orders (cached 10 min) |
 | POST | `/api/work-orders` | **Uses AI.** Body: `property_id`, `email`, `description` → returns the classified work order |
 | GET | `/api/work-orders` | List work orders, most urgent then newest. Filters: `property_id`, `status`, `priority`, `category`, `per_page` |
 
@@ -81,7 +82,7 @@ routes/api.php                     thin route definitions
 app/Http/Controllers/Api/          validate input, delegate, wrap in resources
 app/Http/Requests|Resources/       validation rules / response shapes
 app/Services/                      domain flows (WorkOrderService::create = classify → persist)
-app/Services/AI/                   the AI seam: interface, Gemini client, validated DTO
+app/Services/AI/                   the AI seam: service, Gemini client, prompt builders, validator, DTOs
 app/Repositories/                  every Eloquent query, behind interfaces
 app/Enums/                         single source of truth for types/statuses/categories/priorities
 app/Models/                        Eloquent models + prefixed-ID generation (P-001, WO-1001)
@@ -90,3 +91,39 @@ database/seeders/                  14 curated buildings (with deliberate gaps) +
 
 Controller → Service → Repository, interfaces bound in `AppServiceProvider`.
 The reasoning behind the non-obvious choices is in [DECISION.md](DECISION.md).
+
+## Postman
+
+Import [postman_collection.json](postman_collection.json) — all four endpoints
+with toggleable filter params, the AI creation request, and ready-made 404/422
+failure cases. `base_url` defaults to `http://localhost:8000`.
+
+## Tests
+
+64 tests / 164 assertions, running on in-memory SQLite in well under a second:
+
+```bash
+make test               # inside Docker
+php artisan test        # local
+```
+
+- **Feature**: all four endpoints — filtering, sorting, pagination,
+  empty-state messages, 404/422/429/502 paths. The AI is swapped for a fake
+  via its `AIServiceInterface` binding; tests assert the AI service is never
+  called when validation fails and nothing is saved when it errors.
+- **Integration**: both Eloquent repositories against a real schema
+  (ordering, combined filters, prefixed-ID generation).
+- **Unit**: the AI response validator (rejects 8 flavors of unusable model
+  output) and both services with mocked repositories.
+- Real HTTP is blocked in tests (`Http::preventStrayRequests`), so the suite
+  can never hit the Gemini API.
+
+## Left out / with more time
+
+- **Stats endpoint** (totals and average occupancy per city) — the last
+  nice-to-have from the brief; I prioritised a solid core over extras.
+- **Queued classification**: for production I'd move the AI call to a queued
+  job with a `pending` work order status, so slow model responses never block
+  the HTTP request.
+- **Race-proof IDs**: the prefixed-ID generation (`WO-1002`, …) isn't safe
+  under heavy concurrent writes; I'd switch to ULIDs or a DB sequence.

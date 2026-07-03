@@ -4,7 +4,7 @@ namespace App\Exceptions;
 
 use Exception;
 
-class WorkOrderClassificationException extends Exception
+class AiServiceException extends Exception
 {
     private bool $rateLimited = false;
 

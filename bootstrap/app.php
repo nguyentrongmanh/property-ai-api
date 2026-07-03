@@ -1,6 +1,6 @@
 <?php
 
-use App\Exceptions\WorkOrderClassificationException;
+use App\Exceptions\AiServiceException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -24,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*'),
         );
 
-        $exceptions->render(function (WorkOrderClassificationException $e, Request $request) {
+        $exceptions->render(function (AiServiceException $e, Request $request) {
             if ($e->isRateLimited()) {
                 return response()->json([
                     'message' => 'The AI service is receiving too many requests. Please try again in a minute.',

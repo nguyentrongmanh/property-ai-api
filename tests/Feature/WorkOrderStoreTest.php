@@ -3,20 +3,20 @@
 namespace Tests\Feature;
 
 use App\Models\Building;
-use App\Services\AI\Contracts\WorkOrderClassifierInterface;
+use App\Services\AI\Contracts\AIServiceInterface;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
-use Tests\Support\FakeWorkOrderClassifier;
+use Tests\Support\FakeAIService;
 use Tests\TestCase;
 
 class WorkOrderStoreTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    private function fakeClassifier(?FakeWorkOrderClassifier $fake = null): FakeWorkOrderClassifier
+    private function fakeAIService(?FakeAIService $fake = null): FakeAIService
     {
-        $fake ??= new FakeWorkOrderClassifier;
+        $fake ??= new FakeAIService;
 
-        $this->app->instance(WorkOrderClassifierInterface::class, $fake);
+        $this->app->instance(AIServiceInterface::class, $fake);
 
         return $fake;
     }
@@ -35,7 +35,7 @@ class WorkOrderStoreTest extends TestCase
 
     public function test_creates_a_work_order_from_plain_language(): void
     {
-        $this->fakeClassifier();
+        $this->fakeAIService();
         $building = Building::factory()->create(['id' => 'P-001']);
 
         $response = $this->postJson('/api/work-orders', $this->validPayload($building));
@@ -64,7 +64,7 @@ class WorkOrderStoreTest extends TestCase
 
     public function test_rejects_unknown_building_without_calling_the_ai(): void
     {
-        $fake = $this->fakeClassifier();
+        $fake = $this->fakeAIService();
 
         $response = $this->postJson('/api/work-orders', [
             'property_id' => 'P-999',
@@ -73,12 +73,12 @@ class WorkOrderStoreTest extends TestCase
         ]);
 
         $response->assertUnprocessable()->assertJsonValidationErrors('property_id');
-        $this->assertSame(0, $fake->calls);
+        $this->assertSame(0, $fake->workOrderCalls);
     }
 
     public function test_rejects_implausible_email_without_calling_the_ai(): void
     {
-        $fake = $this->fakeClassifier();
+        $fake = $this->fakeAIService();
         $building = Building::factory()->create();
 
         $response = $this->postJson('/api/work-orders', [
@@ -87,12 +87,12 @@ class WorkOrderStoreTest extends TestCase
         ]);
 
         $response->assertUnprocessable()->assertJsonValidationErrors('email');
-        $this->assertSame(0, $fake->calls);
+        $this->assertSame(0, $fake->workOrderCalls);
     }
 
     public function test_rejects_too_short_description(): void
     {
-        $this->fakeClassifier();
+        $this->fakeAIService();
         $building = Building::factory()->create();
 
         $response = $this->postJson('/api/work-orders', [
@@ -105,7 +105,7 @@ class WorkOrderStoreTest extends TestCase
 
     public function test_saves_nothing_when_the_ai_fails(): void
     {
-        $this->fakeClassifier(FakeWorkOrderClassifier::failing());
+        $this->fakeAIService(FakeAIService::failingWorkOrder());
         $building = Building::factory()->create();
 
         $response = $this->postJson('/api/work-orders', $this->validPayload($building));
@@ -118,7 +118,7 @@ class WorkOrderStoreTest extends TestCase
 
     public function test_maps_ai_rate_limit_to_429_with_retry_after(): void
     {
-        $this->fakeClassifier(FakeWorkOrderClassifier::rateLimited());
+        $this->fakeAIService(FakeAIService::rateLimitedWorkOrder());
         $building = Building::factory()->create();
 
         $response = $this->postJson('/api/work-orders', $this->validPayload($building));
@@ -129,7 +129,7 @@ class WorkOrderStoreTest extends TestCase
 
     public function test_throttles_rapid_requests(): void
     {
-        $this->fakeClassifier();
+        $this->fakeAIService();
         $building = Building::factory()->create();
 
         foreach (range(1, 10) as $i) {

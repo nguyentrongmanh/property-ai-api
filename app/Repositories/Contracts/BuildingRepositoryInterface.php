@@ -3,6 +3,7 @@
 namespace App\Repositories\Contracts;
 
 use App\Models\Building;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
  * Buildings matching filters are returned fullest (highest occupancy) first;
@@ -12,4 +13,12 @@ use App\Models\Building;
  *
  * @extends RepositoryInterface<Building>
  */
-interface BuildingRepositoryInterface extends RepositoryInterface {}
+interface BuildingRepositoryInterface extends RepositoryInterface
+{
+    /**
+     * Return a single building with its open work orders loaded.
+     *
+     * @throws ModelNotFoundException
+     */
+    public function detailWithOpenWorkOrders(string $id): Building;
+}

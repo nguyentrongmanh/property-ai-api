@@ -4,14 +4,18 @@ namespace Tests\Feature\AI;
 
 use App\Enums\WorkOrderCategory;
 use App\Enums\WorkOrderPriority;
-use App\Exceptions\WorkOrderClassificationException;
-use App\Services\AI\Contracts\WorkOrderClassifierInterface;
-use App\Services\AI\GeminiWorkOrderClassifier;
+use App\Exceptions\AiServiceException;
+use App\Integrations\GeminiClient;
+use App\Services\AI\AIService;
+use App\Services\AI\Contracts\AIServiceInterface;
+use App\Services\AI\PromptBuilders\BuildingSummaryPromptBuilder;
+use App\Services\AI\PromptBuilders\WorkOrderPromptBuilder;
+use App\Services\AI\Validators\WorkOrderResponseValidator;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-class GeminiWorkOrderClassifierTest extends TestCase
+class AIServiceWorkOrderTest extends TestCase
 {
     protected function setUp(): void
     {
@@ -50,12 +54,12 @@ class GeminiWorkOrderClassifierTest extends TestCase
             ])),
         ]);
 
-        $classification = app(WorkOrderClassifierInterface::class)
-            ->classify('the elevator keeps stopping');
+        $classification = app(AIServiceInterface::class)
+            ->generateWorkOrder('the elevator keeps stopping');
 
         $this->assertSame('Lobby elevator stopping and making noise', $classification->title);
-        $this->assertSame(WorkOrderCategory::Elevator, $classification->category);
-        $this->assertSame(WorkOrderPriority::High, $classification->priority);
+        $this->assertSame(WorkOrderCategory::Elevator->value, $classification->category);
+        $this->assertSame(WorkOrderPriority::High->value, $classification->priority);
         $this->assertSame('Lobby elevator stops between floors.', $classification->summary);
     }
 
@@ -67,7 +71,7 @@ class GeminiWorkOrderClassifierTest extends TestCase
             ])),
         ]);
 
-        app(WorkOrderClassifierInterface::class)->classify('a leaking tap in the kitchen');
+        app(AIServiceInterface::class)->generateWorkOrder('a leaking tap in the kitchen');
 
         Http::assertSent(function (Request $request): bool {
             $config = $request->data()['generationConfig'] ?? [];
@@ -89,7 +93,7 @@ class GeminiWorkOrderClassifierTest extends TestCase
                 'title' => 'Broken tap', 'category' => 'plumbing', 'priority' => 'medium', 'summary' => 'Tap leaks.',
             ]));
 
-        $classification = app(WorkOrderClassifierInterface::class)->classify('leaking tap');
+        $classification = app(AIServiceInterface::class)->generateWorkOrder('leaking tap');
 
         $this->assertSame('Broken tap', $classification->title);
         Http::assertSentCount(2);
@@ -101,9 +105,9 @@ class GeminiWorkOrderClassifierTest extends TestCase
             ->push($this->geminiResponse('garbage'))
             ->push($this->geminiResponse(['title' => 'T', 'category' => 'spaceship', 'priority' => 'low', 'summary' => 'S']));
 
-        $this->expectException(WorkOrderClassificationException::class);
+        $this->expectException(AiServiceException::class);
 
-        app(WorkOrderClassifierInterface::class)->classify('leaking tap');
+        app(AIServiceInterface::class)->generateWorkOrder('leaking tap');
     }
 
     public function test_maps_upstream_rate_limit_without_retrying(): void
@@ -113,9 +117,9 @@ class GeminiWorkOrderClassifierTest extends TestCase
         ]);
 
         try {
-            app(WorkOrderClassifierInterface::class)->classify('leaking tap');
+            app(AIServiceInterface::class)->generateWorkOrder('leaking tap');
             $this->fail('Expected a rate limited exception.');
-        } catch (WorkOrderClassificationException $exception) {
+        } catch (AiServiceException $exception) {
             $this->assertTrue($exception->isRateLimited());
         }
 
@@ -129,21 +133,26 @@ class GeminiWorkOrderClassifierTest extends TestCase
         ]);
 
         try {
-            app(WorkOrderClassifierInterface::class)->classify('leaking tap');
+            app(AIServiceInterface::class)->generateWorkOrder('leaking tap');
             $this->fail('Expected a classification exception.');
-        } catch (WorkOrderClassificationException $exception) {
+        } catch (AiServiceException $exception) {
             $this->assertFalse($exception->isRateLimited());
         }
     }
 
     public function test_fails_fast_without_an_api_key(): void
     {
-        $classifier = new GeminiWorkOrderClassifier(apiKey: '', model: 'gemini-test');
+        $service = new AIService(
+            new BuildingSummaryPromptBuilder,
+            new WorkOrderPromptBuilder,
+            new WorkOrderResponseValidator,
+            new GeminiClient(apiKey: '', model: 'gemini-test'),
+        );
 
-        $this->expectException(WorkOrderClassificationException::class);
+        $this->expectException(AiServiceException::class);
         $this->expectExceptionMessage('no API key configured');
 
-        $classifier->classify('leaking tap');
+        $service->generateWorkOrder('leaking tap');
 
         Http::assertNothingSent();
     }

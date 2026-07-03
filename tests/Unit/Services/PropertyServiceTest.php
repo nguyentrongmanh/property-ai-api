@@ -4,6 +4,8 @@ namespace Tests\Unit\Services;
 
 use App\Models\Building;
 use App\Repositories\Contracts\BuildingRepositoryInterface;
+use App\Services\AI\Contracts\AIServiceInterface;
+use App\Services\AI\DTOs\BuildingSummaryInputDTO;
 use App\Services\PropertyService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Mockery;
@@ -17,6 +19,8 @@ class PropertyServiceTest extends TestCase
 
     private BuildingRepositoryInterface&MockInterface $repository;
 
+    private AIServiceInterface&MockInterface $aiService;
+
     private PropertyService $service;
 
     protected function setUp(): void
@@ -24,7 +28,30 @@ class PropertyServiceTest extends TestCase
         parent::setUp();
 
         $this->repository = Mockery::mock(BuildingRepositoryInterface::class);
-        $this->service = new PropertyService($this->repository);
+        $this->aiService = Mockery::mock(AIServiceInterface::class);
+        $this->service = new PropertyService($this->repository, $this->aiService);
+    }
+
+    public function test_summary_summarizes_the_building_with_its_open_work_orders(): void
+    {
+        $building = new Building;
+
+        $this->repository->shouldReceive('detailWithOpenWorkOrders')
+            ->once()
+            ->with('P-001')
+            ->andReturn($building);
+
+        $building->setRelation('openWorkOrders', collect());
+
+        $this->aiService->shouldReceive('generateBuildingSummary')
+            ->once()
+            ->with(Mockery::on(function (BuildingSummaryInputDTO $input) use ($building): bool {
+                return $input->building === $building
+                    && $input->openWorkOrders === $building->openWorkOrders;
+            }))
+            ->andReturn('A busy office building.');
+
+        $this->assertSame('A busy office building.', $this->service->summary('P-001'));
     }
 
     public function test_filter_uses_the_default_page_size(): void
