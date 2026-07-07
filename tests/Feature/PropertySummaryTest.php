@@ -44,6 +44,7 @@ class PropertySummaryTest extends TestCase
 
         $response->assertNotFound()->assertExactJson([
             'message' => 'Building P-999 was not found.',
+            'status_code' => 404,
         ]);
         $this->assertSame(0, $fake->buildingSummaryCalls);
     }

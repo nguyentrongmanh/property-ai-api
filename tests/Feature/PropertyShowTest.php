@@ -73,6 +73,7 @@ class PropertyShowTest extends TestCase
 
         $response->assertNotFound()->assertExactJson([
             'message' => 'Building P-999 was not found.',
+            'status_code' => 404,
         ]);
     }
 }

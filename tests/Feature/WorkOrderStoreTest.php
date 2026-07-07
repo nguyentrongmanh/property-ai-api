@@ -112,6 +112,7 @@ class WorkOrderStoreTest extends TestCase
 
         $response->assertStatus(502)->assertExactJson([
             'message' => 'We could not process the maintenance request right now. Please try again shortly.',
+            'status_code' => 502,
         ]);
         $this->assertDatabaseCount('work_orders', 0);
     }
