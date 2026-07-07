@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proprli Engineering Take-Home: AI Property Operations API</title>
+<style>
+
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="topbar-in">
+  <span class="ctx">Engineering Take-Home</span>
+</div></div>
+
+<div class="page">
+  <div class="cover">
+    <div class="brandbar">
+      <span class="wordmark">PROPRLI</span>
+    </div>
+    <div class="kicker">Engineering Take-Home</div>
+    <h1 class="title">Property Operations API<br>with a Bit of AI</h1>
+    <p class="sub">Build a small API that uses an AI model to turn plain language maintenance requests into clean, structured work orders.</p>
+    <div class="chips">
+      <span class="chip"><b>Stack</b>&nbsp;&nbsp;PHP / Laravel</span>
+      <span class="chip"><b>Focus</b>&nbsp;&nbsp;API design and working with AI</span>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <h2>About this test</h2>
+    <p class="lead">Thanks for taking the time to do this. At Proprli we help property teams look after
+    their buildings and keep track of the work that needs doing. More and more of that involves AI,
+    helping people turn a few words written in plain language into something clean and useful.</p>
+    <p>So that is what we would like you to build here: a small API that has an AI model doing real work
+    inside it. It is about a made up property portfolio, so you do not need any background in real estate.
+    There is no front end to build. We mostly want to see how you design an API, how you work with an AI
+    model as part of it, and how tidy your code is.</p>
+
+    <h2>What we want you to build</h2>
+    <p>A REST API built with PHP and Laravel. It works with two simple things:</p>
+    <ul>
+      <li><strong>Buildings</strong>, which are the properties in the portfolio.</li>
+      <li><strong>Work orders</strong>, which are jobs that need doing in a building, like fixing an elevator or replacing a filter.</li>
+    </ul>
+    <p>The fun part is how work orders get created. Instead of filling in a tidy form, someone just
+    describes the problem in plain words, the way a tenant or a caretaker actually would. Your API sends
+    that text to an AI model, and the model helps turn it into a proper work order with a clear title, a
+    category, a priority, and a short summary. Your API then saves that and hands it back.</p>
+
+    <h2>The data you will work with</h2>
+    <p>You can keep the buildings in a couple of seed files or a small database, whichever you prefer.
+    Here is the kind of data we mean.</p>
+<pre><span class="k">// a building</span>
+{
+  <span class="n">"id"</span>: <span class="s">"P-001"</span>,
+  <span class="n">"name"</span>: <span class="s">"Keizersgracht 128"</span>,
+  <span class="n">"type"</span>: <span class="s">"office"</span>,
+  <span class="n">"status"</span>: <span class="s">"active"</span>,
+  <span class="n">"city"</span>: <span class="s">"Amsterdam"</span>,
+  <span class="n">"units"</span>: 14,
+  <span class="n">"occupancy_rate"</span>: 0.86,
+  <span class="n">"amenities"</span>: [<span class="s">"elevator"</span>, <span class="s">"parking"</span>]
+}</pre>
+<pre><span class="k">// a work order, after the AI has helped fill it in</span>
+{
+  <span class="n">"id"</span>: <span class="s">"WO-1001"</span>,
+  <span class="n">"property_id"</span>: <span class="s">"P-001"</span>,
+  <span class="n">"source_text"</span>: <span class="s">"the elevator in the lobby keeps stopping and makes a grinding noise"</span>,
+  <span class="n">"title"</span>: <span class="s">"Lobby elevator stopping and making noise"</span>,      <span class="ai">// from the AI</span>
+  <span class="n">"category"</span>: <span class="s">"elevator"</span>,                                 <span class="ai">// from the AI</span>
+  <span class="n">"priority"</span>: <span class="s">"high"</span>,                                    <span class="ai">// from the AI</span>
+  <span class="n">"summary"</span>: <span class="s">"Lobby elevator is stopping between floors..."</span>,   <span class="ai">// from the AI</span>
+  <span class="n">"status"</span>: <span class="s">"open"</span>,
+  <span class="n">"created_at"</span>: <span class="s">"2025-05-02"</span>
+}</pre>
+    <p>Please include at least twelve buildings with a bit of variety, so different cities, types and
+    occupancy levels, and leave a few fields empty here and there so your code has to cope with data that
+    is not always complete.</p>
+
+    <h2>What the API should do</h2>
+    <p>There are four things the API needs to handle. The paths below are just a suggestion, so shape
+    the routes however feels natural to you.</p>
+
+    <div class="ep">
+      <div class="ep-h"><span class="ep-n">1</span><span class="verb">GET</span><span class="path">/api/properties</span></div>
+      <p>Return a list of buildings, with the option to filter by things like city, type, status, or a
+      minimum occupancy. Show the fullest buildings first. If nothing matches, say so clearly instead of
+      returning an empty list with no explanation.</p>
+    </div>
+
+    <div class="ep">
+      <div class="ep-h"><span class="ep-n">2</span><span class="verb">GET</span><span class="path">/api/properties/{id}</span></div>
+      <p>Return the full details of one building, along with how many open work orders it has. If the
+      building does not exist, return a clear "not found" response.</p>
+    </div>
+
+    <div class="ep star">
+      <div class="ep-h"><span class="ep-n">3</span><span class="verb post">POST</span><span class="path">/api/work-orders</span><span class="aitag">USES AI</span></div>
+      <p>This is the heart of the test. Someone sends the id of a building, their email, and a plain
+      language description of the problem. Your API passes that description to an AI model, which comes
+      back with a clean title, a category, a priority, and a short summary. You then save a new work order
+      that keeps the original text and adds those fields, with a status of "open" and the date it was
+      created, and return it. Before saving, check that the building exists and that the email looks real.</p>
+    </div>
+
+    <div class="ep">
+      <div class="ep-h"><span class="ep-n">4</span><span class="verb">GET</span><span class="path">/api/work-orders</span></div>
+      <p>Return the work orders, with the option to filter by building, status, priority, or category.
+      Show the most urgent and most recent ones first.</p>
+    </div>
+
+    <h2>Working with the AI model</h2>
+    <div class="ai-panel">
+      <h3>Which model to use</h3>
+      <p>Use whichever AI provider you like, such as OpenAI or Anthropic. Keep the key in an environment
+      variable and include a <code>.env.example</code> so we know what to set, but never commit your real key.</p>
+      <h3>You do not need to spend anything (if you don't want)</h3>
+      <p>There is no need to pay for this. Several models have a free tier that is more than enough here,
+      with some limits on how often you can call them. Options like Google Gemini, Groq and a few of the
+      free models on OpenRouter all work well, so pick whichever you like. And if you would rather use a
+      paid model you are comfortable with, that is completely fine too. Just say which one you went with
+      in your README.</p>
+    </div>
+
+    <h2>A few things we care about</h2>
+    <ul>
+      <li>Keep the AI call tucked away behind its own small piece of code, so it is easy to read and swap out later.</li>
+      <li>Check the model's answer before you trust it, and never save a half filled work order because the model slipped up.</li>
+      <li>Keep the rest of the code tidy too, with the data logic kept apart from the routes and controllers.</li>
+      <li>Use sensible HTTP status codes, and give helpful responses when something goes wrong.</li>
+    </ul>
+
+    <h2>How we will look at it</h2>
+    <table>
+      <thead><tr><th>What</th><th>What we hope to see</th></tr></thead>
+      <tbody>
+        <tr><td>Working with AI</td><td>A clean request to the model, a proper check of the answer, and calm handling when it fails.</td></tr>
+        <tr><td>API design</td><td>Clear routes, sensible responses, and good use of status codes.</td></tr>
+        <tr><td>Data handling</td><td>Filtering, sorting and validation all work the way we described.</td></tr>
+        <tr><td>Code quality</td><td>Easy to read and well organised, with the different parts kept separate.</td></tr>
+        <tr><td>Documentation</td><td>A short README that gets us up and running quickly.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Nice to have <span class="muted-inline">(only if you have time)</span></h2>
+    <ul>
+      <li>A short AI written summary of a building and its open work orders, at something like <code>GET /api/properties/{id}/summary</code>.</li>
+      <li>A simple stats endpoint with totals and average occupancy per city.</li>
+      <li>A few tests around the core logic.</li>
+    </ul>
+    <p class="muted-inline">These are all optional. A clean, working version of the main API means much
+    more to us than a pile of half finished extras.</p>
+
+    <h2>What to send us</h2>
+    <p>When you are done, please send your repository link to
+    <a href="mailto:h.lima@proprli.com">h.lima@proprli.com</a> and
+    <a href="mailto:d.kapic@proprli.com">d.kapic@proprli.com</a>, along with:</p>
+    <ul>
+      <li>A link to a GitHub repository with your code, and keep your seed data inside the repo.</li>
+      <li>A short README that explains how to install and run it, which AI provider you used, what each part does, and anything you left out or would do differently with more time.</li>
+    </ul>
+    <div class="note"><span class="dot">i</span><div>We should be able to get your API running in under ten minutes by following your README, so please keep the setup simple.</div></div>
+
+    <h2>A few ground rules</h2>
+    <ul>
+      <li>Give it around three or four days of part time work. If you run low on time, drop the optional extras and mention it in your README rather than sending something broken.</li>
+      <li>You are very welcome to use AI tools to help you write the code too. Just make sure you understand every line, because we will ask you about it.</li>
+      <li>Please do not over build it. We care as much about your judgment as about how much you get done.</li>
+    </ul>
+
+    <div class="endbar">
+      <b>Good luck, and have fun with it.</b><br>
+      We are looking forward to seeing how you think, especially around the AI part. When you are done,
+      send over the repository link and a quick note on what you would add next if you had one more day.
+      If anything here is unclear, just email <a href="mailto:h.lima@proprli.com" style="color:#fff;text-decoration:underline;">h.lima@proprli.com</a>
+      or <a href="mailto:d.kapic@proprli.com" style="color:#fff;text-decoration:underline;">d.kapic@proprli.com</a>.
+    </div>
+
+  </div>
+</div>
+
+<footer>Proprli &middot; Confidential &middot; Engineering Take-Home</footer>
+
+</body>
+</html>
